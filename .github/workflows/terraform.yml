@@ -1,4 +1,4 @@
-name: 'Terraform Azure Deploy with Remote State'
+name: 'Terraform Azure Deploy with Remote State and Auto-Format'
 
 on:
   push:
@@ -26,18 +26,23 @@ jobs:
         with:
           terraform_version: 1.6.2
 
+      # Initialize Terraform with backend config
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Format
-        run: terraform fmt -check
+      # Auto-format Terraform code (instead of just checking)
+      - name: Terraform Auto Format
+        run: terraform fmt
 
+      # Validate Terraform syntax
       - name: Terraform Validate
         run: terraform validate
 
+      # Create a plan to review changes
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
+      # Apply changes (only on main branch)
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
