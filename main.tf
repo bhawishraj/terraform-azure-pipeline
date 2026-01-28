@@ -101,8 +101,8 @@ resource "azurerm_storage_container" "example_container" {
   container_access_type = "private"
 }
 
-# 6. Azure SQL Server + Database
-resource "azurerm_sql_server" "example_sql_server" {
+# 6. Azure SQL Server (MSSQL) + Database
+resource "azurerm_mssql_server" "example_sql_server" {
   name                         = "examplesqlserver01"
   resource_group_name          = azurerm_resource_group.example.name
   location                     = azurerm_resource_group.example.location
@@ -111,12 +111,10 @@ resource "azurerm_sql_server" "example_sql_server" {
   administrator_login_password = "YourSecurePassword123!"
 }
 
-resource "azurerm_sql_database" "example_sql_db" {
-  name                = "example-sqldb"
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
-  server_name         = azurerm_sql_server.example_sql_server.name
-  sku_name            = "S0"
+resource "azurerm_mssql_database" "example_sql_db" {
+  name      = "example-sqldb"
+  server_id = azurerm_mssql_server.example_sql_server.id
+  sku_name  = "S0"
 }
 
 # 7. Azure Cosmos DB + SQL Database
