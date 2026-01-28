@@ -68,10 +68,10 @@ resource "azurerm_network_interface" "example_nic" {
 resource "azurerm_windows_virtual_machine" "example_vm" {
   count               = 3
   name                = "winvm-${count.index + 1}-${random_integer.suffix.result}"
-  computer_name       = "WIN${count.index + 1}" # <= 15 chars
+  computer_name       = "WIN${count.index + 1}"
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
-  size                = "Standard_B1ms" # ~2 GB RAM
+  size                = "Standard_B1ms"
   admin_username      = "azureuser"
   admin_password      = var.vm_admin_password
   network_interface_ids = [
@@ -81,7 +81,7 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
-    disk_size_gb         = 25
+    # Removed disk_size_gb to allow default image size (127 GB for Windows Server 2019)
   }
 
   source_image_reference {
@@ -91,7 +91,6 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
     version   = "latest"
   }
 }
-
 # 5. Azure Storage Account + Private Blob Container
 resource "azurerm_storage_account" "example_storage" {
   name                     = "stor${random_integer.suffix.result}"
@@ -126,7 +125,7 @@ resource "azurerm_mssql_database" "example_sql_db" {
 # 7. Azure Cosmos DB + SQL Database
 resource "azurerm_cosmosdb_account" "example_cosmos" {
   name                = "cosmosacct${random_integer.suffix.result}"
-  location            = azurerm_resource_group.example.location
+  location            = "East US 2" # Changed from East US
   resource_group_name = azurerm_resource_group.example.name
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
@@ -138,7 +137,7 @@ resource "azurerm_cosmosdb_account" "example_cosmos" {
   }
 
   geo_location {
-    location          = azurerm_resource_group.example.location
+    location          = "East US 2"
     failover_priority = 0
   }
 }
@@ -148,3 +147,4 @@ resource "azurerm_cosmosdb_sql_database" "example_cosmos_db" {
   resource_group_name = azurerm_resource_group.example.name
   account_name        = azurerm_cosmosdb_account.example_cosmos.name
 }
+
