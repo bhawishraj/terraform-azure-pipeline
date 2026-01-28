@@ -117,28 +117,3 @@ resource "azurerm_mssql_database" "example_sql_db" {
   sku_name  = "S0"
 }
 
-# 7. Azure Cosmos DB + SQL Database
-resource "azurerm_cosmosdb_account" "example_cosmos" {
-  name                = "examplecosmosacct01"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-  offer_type          = "Standard"
-  kind                = "GlobalDocumentDB"
-
-  consistency_policy {
-    consistency_level       = "Session"
-    max_interval_in_seconds = 5
-    max_staleness_prefix    = 100
-  }
-
-  geo_location {
-    location          = azurerm_resource_group.example.location
-    failover_priority = 0
-  }
-}
-
-resource "azurerm_cosmosdb_sql_database" "example_cosmos_db" {
-  name                = "example-cosmosdb"
-  resource_group_name = azurerm_resource_group.example.name
-  account_name        = azurerm_cosmosdb_account.example_cosmos.name
-}
