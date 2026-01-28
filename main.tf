@@ -8,7 +8,7 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "tfstate-rg"
-    storage_account_name = "tfstatestorage9"
+    storage_account_name = "tfstateaccount"
     container_name       = "tfstate"
     key                  = "terraform.tfstate"
   }
@@ -18,12 +18,13 @@ provider "azurerm" {
   features {}
 }
 
+# Variable to securely pass VM admin password from GitHub Secrets
 variable "vm_admin_password" {
   type      = string
   sensitive = true
 }
 
-# Random suffix for unique resource names
+# Random suffix for globally unique names
 resource "random_integer" "suffix" {
   min = 10000
   max = 99999
@@ -32,12 +33,12 @@ resource "random_integer" "suffix" {
 # 1. Resource Group
 resource "azurerm_resource_group" "example" {
   name     = "rg-example"
-  location = "East US"
+  location = "southafricanorth" # ✅ Changed from EastUS to low-demand
 }
 
 # 2. Virtual Network & Subnet
 resource "azurerm_virtual_network" "example_vnet" {
-  name                = "example-vnet"
+  name                = "example-vnet-${random_integer.suffix.result}"
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
@@ -68,7 +69,7 @@ resource "azurerm_network_interface" "example_nic" {
 resource "azurerm_windows_virtual_machine" "example_vm" {
   count               = 3
   name                = "winvm-${count.index + 1}-${random_integer.suffix.result}"
-  computer_name       = "WIN${count.index + 1}"
+  computer_name       = "WIN${count.index + 1}" # Must be <=15 chars for Windows
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
   size                = "Standard_B1ms"
@@ -81,7 +82,7 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
-    # Removed disk_size_gb to allow default image size (127 GB for Windows Server 2019)
+    # disk_size_gb removed to use default 127 GB from Windows image
   }
 
   source_image_reference {
@@ -91,6 +92,7 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
     version   = "latest"
   }
 }
+
 # 5. Azure Storage Account + Private Blob Container
 resource "azurerm_storage_account" "example_storage" {
   name                     = "stor${random_integer.suffix.result}"
@@ -110,7 +112,7 @@ resource "azurerm_storage_container" "example_container" {
 resource "azurerm_mssql_server" "example_sql_server" {
   name                         = "sqlsrv${random_integer.suffix.result}"
   resource_group_name          = azurerm_resource_group.example.name
-  location                     = "East US 2" # Different region due to quota issues in East US
+  location                     = "southafricanorth" # Same low-demand region
   version                      = "12.0"
   administrator_login          = "sqladminuser"
   administrator_login_password = "YourSecurePassword123!"
@@ -125,7 +127,7 @@ resource "azurerm_mssql_database" "example_sql_db" {
 # 7. Azure Cosmos DB + SQL Database
 resource "azurerm_cosmosdb_account" "example_cosmos" {
   name                = "cosmosacct${random_integer.suffix.result}"
-  location            = "East US 2" # Changed from East US
+  location            = "southafricanorth"
   resource_group_name = azurerm_resource_group.example.name
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
@@ -137,7 +139,7 @@ resource "azurerm_cosmosdb_account" "example_cosmos" {
   }
 
   geo_location {
-    location          = "East US 2"
+    location          = "southafricanorth"
     failover_priority = 0
   }
 }
@@ -147,4 +149,3 @@ resource "azurerm_cosmosdb_sql_database" "example_cosmos_db" {
   resource_group_name = azurerm_resource_group.example.name
   account_name        = azurerm_cosmosdb_account.example_cosmos.name
 }
-
