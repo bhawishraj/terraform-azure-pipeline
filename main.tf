@@ -18,10 +18,15 @@ provider "azurerm" {
   features {}
 }
 
-# Variable to store VM admin password from GitHub Secrets
 variable "vm_admin_password" {
   type      = string
   sensitive = true
+}
+
+# Random suffix for unique resource names
+resource "random_integer" "suffix" {
+  min = 10000
+  max = 99999
 }
 
 # 1. Resource Group
@@ -45,10 +50,10 @@ resource "azurerm_subnet" "example_subnet" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# 3. Network Interfaces (NICs) for 3 VMs
+# 3. Create 3 NICs for 3 Windows VMs
 resource "azurerm_network_interface" "example_nic" {
   count               = 3
-  name                = "example-nic-${count.index + 1}"
+  name                = "nic-${count.index + 1}-${random_integer.suffix.result}"
   location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
@@ -59,13 +64,14 @@ resource "azurerm_network_interface" "example_nic" {
   }
 }
 
-# 4. Windows Virtual Machines (3 instances)
+# 4. Create 3 Windows Virtual Machines
 resource "azurerm_windows_virtual_machine" "example_vm" {
   count               = 3
-  name                = "example-windows-vm-${count.index + 1}"
+  name                = "winvm-${count.index + 1}-${random_integer.suffix.result}"
+  computer_name       = "WIN${count.index + 1}" # <= 15 chars
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
-  size                = "Standard_B1ms" # ~2 GB RAM, closest to 1 GB
+  size                = "Standard_B1ms" # ~2 GB RAM
   admin_username      = "azureuser"
   admin_password      = var.vm_admin_password
   network_interface_ids = [
@@ -88,7 +94,7 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
 
 # 5. Azure Storage Account + Private Blob Container
 resource "azurerm_storage_account" "example_storage" {
-  name                     = "examplestoracct"
+  name                     = "stor${random_integer.suffix.result}"
   resource_group_name      = azurerm_resource_group.example.name
   location                 = azurerm_resource_group.example.location
   account_tier             = "Standard"
@@ -103,17 +109,42 @@ resource "azurerm_storage_container" "example_container" {
 
 # 6. Azure SQL Server (MSSQL) + Database
 resource "azurerm_mssql_server" "example_sql_server" {
-  name                         = "examplesqlserver01"
+  name                         = "sqlsrv${random_integer.suffix.result}"
   resource_group_name          = azurerm_resource_group.example.name
-  location                     = azurerm_resource_group.example.location
+  location                     = "East US 2" # Different region due to quota issues in East US
   version                      = "12.0"
   administrator_login          = "sqladminuser"
   administrator_login_password = "YourSecurePassword123!"
 }
 
 resource "azurerm_mssql_database" "example_sql_db" {
-  name      = "example-sqldb"
+  name      = "sqldb${random_integer.suffix.result}"
   server_id = azurerm_mssql_server.example_sql_server.id
   sku_name  = "S0"
 }
 
+# 7. Azure Cosmos DB + SQL Database
+resource "azurerm_cosmosdb_account" "example_cosmos" {
+  name                = "cosmosacct${random_integer.suffix.result}"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+  offer_type          = "Standard"
+  kind                = "GlobalDocumentDB"
+
+  consistency_policy {
+    consistency_level       = "Session"
+    max_interval_in_seconds = 5
+    max_staleness_prefix    = 100
+  }
+
+  geo_location {
+    location          = azurerm_resource_group.example.location
+    failover_priority = 0
+  }
+}
+
+resource "azurerm_cosmosdb_sql_database" "example_cosmos_db" {
+  name                = "cosmosdb${random_integer.suffix.result}"
+  resource_group_name = azurerm_resource_group.example.name
+  account_name        = azurerm_cosmosdb_account.example_cosmos.name
+}
