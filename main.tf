@@ -36,11 +36,11 @@ resource "azurerm_resource_group" "example" {
   location = "southafricanorth" # ✅ Changed from EastUS to low-demand
 }
 
-# 2. Virtual Network & Subnet
+# 2. Virtual Network & Subnet (now in Southeast Asia)
 resource "azurerm_virtual_network" "example_vnet" {
   name                = "example-vnet-${random_integer.suffix.result}"
   address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.example.location
+  location            = "southeastasia"
   resource_group_name = azurerm_resource_group.example.name
 }
 
@@ -51,11 +51,11 @@ resource "azurerm_subnet" "example_subnet" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# 3. Create 3 NICs for 3 Windows VMs
+# 3. Network Interfaces (for VMs, also Southeast Asia)
 resource "azurerm_network_interface" "example_nic" {
   count               = 3
   name                = "nic-${count.index + 1}-${random_integer.suffix.result}"
-  location            = azurerm_resource_group.example.location
+  location            = "southeastasia"
   resource_group_name = azurerm_resource_group.example.name
 
   ip_configuration {
@@ -64,6 +64,7 @@ resource "azurerm_network_interface" "example_nic" {
     private_ip_address_allocation = "Dynamic"
   }
 }
+
 
 # 4. Create 3 Windows Virtual Machines
 resource "azurerm_windows_virtual_machine" "example_vm" {
