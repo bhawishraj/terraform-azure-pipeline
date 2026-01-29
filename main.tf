@@ -18,13 +18,11 @@ provider "azurerm" {
   features {}
 }
 
-# Variable to securely pass VM admin password from GitHub Secrets
 variable "vm_admin_password" {
   type      = string
   sensitive = true
 }
 
-# Random suffix for globally unique names
 resource "random_integer" "suffix" {
   min = 10000
   max = 99999
@@ -33,14 +31,14 @@ resource "random_integer" "suffix" {
 # 1. Resource Group
 resource "azurerm_resource_group" "example" {
   name     = "rg-example"
-  location = "southafricanorth" # ✅ Changed from EastUS to low-demand
+  location = "southeastasia"
 }
 
-# 2. Virtual Network & Subnet (now in Southeast Asia)
+# 2. Virtual Network & Subnet
 resource "azurerm_virtual_network" "example_vnet" {
-  name                = "example-vnet-${random_integer.suffix.result}"
+  name                = "vnet-${random_integer.suffix.result}"
   address_space       = ["10.0.0.0/16"]
-  location            = "southeastasia"
+  location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 }
 
@@ -51,11 +49,11 @@ resource "azurerm_subnet" "example_subnet" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# 3. Network Interfaces (for VMs, also Southeast Asia)
+# 3. NICs
 resource "azurerm_network_interface" "example_nic" {
   count               = 3
   name                = "nic-${count.index + 1}-${random_integer.suffix.result}"
-  location            = "southeastasia"
+  location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
 
   ip_configuration {
@@ -63,14 +61,15 @@ resource "azurerm_network_interface" "example_nic" {
     subnet_id                     = azurerm_subnet.example_subnet.id
     private_ip_address_allocation = "Dynamic"
   }
+
+  depends_on = [azurerm_subnet.example_subnet]
 }
 
-
-# 4. Create 3 Windows Virtual Machines
+# 4. Windows VMs
 resource "azurerm_windows_virtual_machine" "example_vm" {
   count               = 3
   name                = "winvm-${count.index + 1}-${random_integer.suffix.result}"
-  computer_name       = "WIN${count.index + 1}" # Must be <=15 chars for Windows
+  computer_name       = "WIN${count.index + 1}"
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
   size                = "Standard_B1ms"
@@ -83,7 +82,6 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
-    # disk_size_gb removed to use default 127 GB from Windows image
   }
 
   source_image_reference {
@@ -94,7 +92,7 @@ resource "azurerm_windows_virtual_machine" "example_vm" {
   }
 }
 
-# 5. Azure Storage Account + Private Blob Container
+# 5. Storage Account & Container
 resource "azurerm_storage_account" "example_storage" {
   name                     = "stor${random_integer.suffix.result}"
   resource_group_name      = azurerm_resource_group.example.name
@@ -109,11 +107,11 @@ resource "azurerm_storage_container" "example_container" {
   container_access_type = "private"
 }
 
-# 6. Azure SQL Server (MSSQL) + Database
+# 6. SQL Server & Database
 resource "azurerm_mssql_server" "example_sql_server" {
   name                         = "sqlsrv${random_integer.suffix.result}"
   resource_group_name          = azurerm_resource_group.example.name
-  location                     = "southafricanorth" # Same low-demand region
+  location                     = azurerm_resource_group.example.location
   version                      = "12.0"
   administrator_login          = "sqladminuser"
   administrator_login_password = "YourSecurePassword123!"
@@ -125,10 +123,10 @@ resource "azurerm_mssql_database" "example_sql_db" {
   sku_name  = "S0"
 }
 
-# 7. Azure Cosmos DB + SQL Database
+# 7. Cosmos DB & SQL Database
 resource "azurerm_cosmosdb_account" "example_cosmos" {
   name                = "cosmosacct${random_integer.suffix.result}"
-  location            = "southafricanorth"
+  location            = azurerm_resource_group.example.location
   resource_group_name = azurerm_resource_group.example.name
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
@@ -140,7 +138,7 @@ resource "azurerm_cosmosdb_account" "example_cosmos" {
   }
 
   geo_location {
-    location          = "southafricanorth"
+    location          = azurerm_resource_group.example.location
     failover_priority = 0
   }
 }
